@@ -20,7 +20,8 @@
 - DPDK
 - Traceable Signatures［1］
 
-LACANでは追跡可能署名を用いるためhttps://github.com/scmanjarrez/libgroupsigを用いてインストールする
+LACANでは追跡可能署名を用いるためhttps://github.com/scmanjarrez/libgroupsig
+を用いてインストールする
 
 実装はubuntu22.05とDPDK20.05を用いてテストしている
 
