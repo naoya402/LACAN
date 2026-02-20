@@ -113,7 +113,15 @@ make
 
 例:
 ```jsx
-
+Average τ verification:  399547.78 cycles  (107.99 µs)
+Average π verification:  8874585.00 cycles  (2398.54 µs)
+Average C commitment:   3225.58 cycles  (0.87 µs)
+Average π signing:       2617021.09 cycles  (707.30 µs)
+Average V confirmation:  5843598.65 cycles  (1579.35 µs)
+Average τ signing:       170622.41 cycles  (46.11 µs)
+Average MAC generation:  0.00 cycles  (0.00 µs)
+Average MAC verification:  0.00 cycles  (0.00 µs)
+Average Relay process:  18115280.11 cycles  (4896.02 µs)
 ```
 
 ### データ転送フェーズ
@@ -133,17 +141,18 @@ make
 
 例:
 ```jsx
-
+Average MAC generation:  987.06 cycles  (0.49 µs)
+Average MAC verification:  998.31 cycles  (0.50 µs)
+Average Relay process:  5128.42 cycles  (2.56 µs)
 ```
 
 
-送信側で送信開始から受信までの秒数を調整し送受信パケット比(パケットロス)が1%まで
-
-run.shの送信レートをあげる
+送信側で送信開始から受信までの秒数を調整し送受信パケット比(パケットロス)が1%までrun.shの送信レートをあげる
 
 例: 
 ```jsx
-
+total pkts=2047754, avg Throughput=507.843 Mbps over 10.00 s
+total pkts=2047754, avg Goodput=209.690 Mbps over 10.00 s
 ```
 
 ### **通報フェーズ**

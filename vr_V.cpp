@@ -7,10 +7,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "func2.h"
-
-#define PORT 9100
-#define SERVER_ADDR "192.168.10.48"
+// #include "func2.h"
+#include "common_func.h"
+#include "TLS_func.h"
+#include "config.h"
 
 uint64_t pkt_count = 1;
 uint64_t Open_cycles = 0;
@@ -104,11 +104,9 @@ int main(int argc, char *argv[]) {
     // 検証者Vの処理
     // --- Rと接続 ---
     int serv_sock = socket(AF_INET, SOCK_STREAM, 0);
-    int opt = 1;
-    // setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)); // ★追加
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9100);
+    addr.sin_port = htons(VR_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
     
     bind(serv_sock, (struct sockaddr*)&addr, sizeof(addr));
@@ -121,8 +119,8 @@ int main(int argc, char *argv[]) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serv_addr{};
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(9123);
-    inet_pton(AF_INET, SERVER_ADDR, &serv_addr.sin_addr);
+    serv_addr.sin_port = htons(VNi_PORT);
+    inet_pton(AF_INET, Ni_ADDR, &serv_addr.sin_addr);
     
     // if (connect(sock, (sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
     //     perror("connect");
@@ -429,14 +427,6 @@ int main(int argc, char *argv[]) {
             ac_plain4 = concat2(ac_plain3, ac_plain3_len, pi_concat, cur_id * USIG_LEN, &ac_plain4_len);
             // print_hex("ac_plain4", ac_plain4, ac_plain4_len);
             ac_plain5 = concat2(ac_plain4, ac_plain4_len, pi_concat + cur_id * USIG_LEN, USIG_LEN, &ac_plain5_len);
-            // print_hex("ac_plain5", ac_plain5, ac_plain5_len);
-            // } else {
-            // ac_plain4 = concat2(ac_plain3, ac_plain3_len, NULL, 0, &ac_plain4_len);
-            // // print_hex("ac_plain4", ac_plain4, ac_plain4_len);
-            // ac_plain5 = concat2(ac_plain4, ac_plain4_len, NULL, 0, &ac_plain5_len);
-            // // print_hex("ac_plain5", ac_plain5, ac_plain5_len);
-            // }
-            // print_hex("W", W_bytes, W_len);
             inq = ac_plain5;//concat2(ac_plain3, ac_plain3_len, W_bytes, W_len, &inq_len);
             inq_len = ac_plain5_len;
             // // === ソケット送信 ===

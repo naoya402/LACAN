@@ -5,10 +5,8 @@
 
 #include "common_func.h"
 #include "TLS_func.h"
+#include "config.h"
 
-// #define PORT 9002
-#define PORT 9100
-#define SERVER_ADDR "192.168.64.51"
 
 uint64_t tg_sign_cycles = 0;
 uint64_t sender_setup_cycles = 0;
@@ -209,8 +207,6 @@ int main(int argc, char *argv[]) {
         aead_encrypt(me->k[i], ap, ap_len, pkt.h.sid, iv, ci, tag);
         // print_hex("ci", ci, SEG_LEN);
         // print_hex("tag", tag, TAG_LEN);
-        // print_hex("iv", iv, IV_LEN);
-        // // リングバッファもどき(容量=ROUTERS)に c_iやタグを循環的に挿入
         size_t offset = (size_t)((i-1) % (ROUTERS + 1)) * (SEG_LEN + TAG_LEN + IV_LEN);//ROUTERS + 1では経路長が漏洩するため適切な固定長(12など)にする
 
         // memcpy(pkt.h.seg_concat + offset, t2, t2_len);
@@ -380,203 +376,203 @@ int main(int argc, char *argv[]) {
     me->has_sess = 1;
     // print_hex("S derived k", me->sess_key, KEY_LEN);
 
-    // printf("計測開始\n");
-    // int pkt_count = 10000;
-    // for (int trial = 0; trial < pkt_count; trial++) {
-        // //pkt_countの桁が変わるごとに表示
-        // if (trial % 100 == 0) {
-        //     printf("Trial: %d\n", trial);
-        // }
+    printf("計測開始\n");
+    int pkt_count = 10000;
+    for (int trial = 0; trial < pkt_count; trial++) {
+        //pkt_countの桁が変わるごとに表示
+        if (trial % 100 == 0) {
+            printf("Trial: %d\n", trial);
+        }
     
-    // printf("\n======= データ転送フェーズ =======\n");
-    start_cycles = rte_rdtsc();
-    // Sの処理: msgを暗号化して送信パケット作成
-    // printf("S -> ");
-    unsigned char sid_use[SID_LEN];
-    unsigned char kS_pub[PUB_LEN];
-    get_raw_pub(nodes[0].dh_sk, kS_pub);
-    hash_sid(kS_pub, PUB_LEN, sid_use);
-    memcpy(pkt.h.sid, sid_use, SID_LEN);
-    pkt.h.status = DATA_TRANS;
+        // printf("\n======= データ転送フェーズ =======\n");
+        start_cycles = rte_rdtsc();
+        // Sの処理: msgを暗号化して送信パケット作成
+        // printf("S -> ");
+        unsigned char sid_use[SID_LEN];
+        unsigned char kS_pub[PUB_LEN];
+        get_raw_pub(nodes[0].dh_sk, kS_pub);
+        hash_sid(kS_pub, PUB_LEN, sid_use);
+        memcpy(pkt.h.sid, sid_use, SID_LEN);
+        pkt.h.status = DATA_TRANS;
 
-    const char *msg = "hello world";
-    size_t msg_len = strlen(msg);
-    // printf("S sending plaintext: %s\n", msg);
+        const char *msg = "hello world";
+        size_t msg_len = strlen(msg);
+        // printf("S sending plaintext: %s\n", msg);
 
-    // --- Padding Fix: 先頭にゼロブロックを付加 ---
-    unsigned char zero_pad[PAD_LEN] = {0};
+        // --- Padding Fix: 先頭にゼロブロックを付加 ---
+        unsigned char zero_pad[PAD_LEN] = {0};
 
-    size_t padded_len = 0;
-    unsigned char *padded_msg = concat2(zero_pad, PAD_LEN,(const unsigned char*)msg, msg_len,&padded_len);
-    // print_hex("Padded message", padded_msg, padded_len);
-    
-    aead_encrypt(nodes[0].sess_key, padded_msg, padded_len, pkt.h.sid, pkt.p.iv, pkt.p.ct, pkt.p.tag);
-    pkt.p.ct_len = padded_len;
-    free(padded_msg);
+        size_t padded_len = 0;
+        unsigned char *padded_msg = concat2(zero_pad, PAD_LEN,(const unsigned char*)msg, msg_len,&padded_len);
+        // print_hex("Padded message", padded_msg, padded_len);
+        
+        aead_encrypt(nodes[0].sess_key, padded_msg, padded_len, pkt.h.sid, pkt.p.iv, pkt.p.ct, pkt.p.tag);
+        pkt.p.ct_len = padded_len;
+        free(padded_msg);
 
-    //センダーのMAC
-    // 各リレーの共有鍵 k_i を計算 & m_i を生成
-    for (int i = 1; i < NODES - 1; i++) {
-        // print_hex("ki", me->k[i], KEY_LEN);
-        // HMACでACSEG生成
-        unsigned char acseg[ACSEG_LEN];
-        unsigned int acseg_len;
-        size_t offset = (i - 1) * ACSEG_LEN;
-        // print_hex("me->ki", me->ki, KEY_LEN);
-        int gmac_result = aes_gmac(me->k[i], KEY_LEN, FIXED_IV, IV_LEN, pkt.p.ct, pkt.p.ct_len, pkt.h.acseg_concat + offset, &acseg_len);
-        if (gmac_result != 0) {
-            fprintf(stderr,"GMAC failed at R%d\n", idx);
+        //センダーのMAC
+        // 各リレーの共有鍵 k_i を計算 & m_i を生成
+        for (int i = 1; i < NODES - 1; i++) {
+            // print_hex("ki", me->k[i], KEY_LEN);
+            // HMACでACSEG生成
+            unsigned char acseg[ACSEG_LEN];
+            unsigned int acseg_len;
+            size_t offset = (i - 1) * ACSEG_LEN;
+            // print_hex("me->ki", me->ki, KEY_LEN);
+            int gmac_result = aes_gmac(me->k[i], KEY_LEN, FIXED_IV, IV_LEN, pkt.p.ct, pkt.p.ct_len, pkt.h.acseg_concat + offset, &acseg_len);
+            if (gmac_result != 0) {
+                fprintf(stderr,"GMAC failed at R%d\n", idx);
+                return -1;
+            }
+        }
+        
+        pkt.h.idx = 1;
+        // ==== DATA_TRANS をパケットに積む ====
+        memset(frame, 0, sizeof(frame));
+        write_l2l3_min(frame, sizeof(frame));
+        wire_len = build_overlay_data_trans(frame, sizeof(frame), &pkt);
+        end_cycles = rte_rdtsc();
+        sender_datatrans_cycles += end_cycles - start_cycles;
+
+        // 各リレーの処理: state.next で転送
+        int cur = nodes[1].id;
+        while (cur != NODES-1) {
+            if (router_handle_data_trans(frame, nodes) != 0) die("data_trans fail");
+            // printf("R%d -> ", me->id);
+            cur++;// = next_addr;
+        }
+        
+        // Rの処理: MAC確認＆復号
+        // printf("R(R%d)\n", cur);
+        me = &nodes[NODES-1];
+        unsigned char padplain[MAX_PTXT];
+        start_cycles = rte_rdtsc();
+        if (parse_frame_to_pkt(frame, sizeof(frame), &pkt) != 0) {
+            fprintf(stderr, "R: parse failed\n");
             return -1;
         }
-    }
-    
-    pkt.h.idx = 1;
-    // ==== DATA_TRANS をパケットに積む ====
-    memset(frame, 0, sizeof(frame));
-    write_l2l3_min(frame, sizeof(frame));
-    wire_len = build_overlay_data_trans(frame, sizeof(frame), &pkt);
-    end_cycles = rte_rdtsc();
-    sender_datatrans_cycles += end_cycles - start_cycles;
 
-    // 各リレーの処理: state.next で転送
-    int cur = nodes[1].id;
-    while (cur != NODES-1) {
-        if (router_handle_data_trans(frame, nodes) != 0) die("data_trans fail");
-        // printf("R%d -> ", me->id);
-        cur++;// = next_addr;
-    }
-    
-    // Rの処理: MAC確認＆復号
-    // printf("R(R%d)\n", cur);
-    me = &nodes[NODES-1];
-    unsigned char padplain[MAX_PTXT];
-    start_cycles = rte_rdtsc();
-    if (parse_frame_to_pkt(frame, sizeof(frame), &pkt) != 0) {
-        fprintf(stderr, "R: parse failed\n");
-        return -1;
-    }
-
-    // MAC確認
-    int t_flag = 0;
-    for (int i = 1; i < NODES - 1; i++) {
-        unsigned char *acseg = (unsigned char *)malloc(ACSEG_LEN);
-        unsigned int acseg_len;
-        size_t offset = (i - 1) * ACSEG_LEN;
-        // ac_plain2 = concat2(pkt.h.acseg_concat, (i - 1) * ACSEG_LEN, pkt.p.ct, pkt.p.ct_len, &ac_plain2_len);
-        int gmac_result = aes_gmac(me->k[i], KEY_LEN, FIXED_IV, IV_LEN, pkt.p.ct, pkt.p.ct_len, acseg, &acseg_len);
-        int flags = 0; // すべて一致なら1
-        // acseg_concat内の自身のacsegと比較
-        // print_hex("Received ACSEG", pkt.h.acseg_concat + offset, ACSEG_LEN);
-        if (memcmp(acseg, pkt.h.acseg_concat + offset, ACSEG_LEN) == 0) {
-            // printf("R%d ACSEG match\n", i);
-            flags = 1;
-        } else {
-            printf("R%d ACSEG mismatch\n", i);
+        // MAC確認
+        int t_flag = 0;
+        for (int i = 1; i < NODES - 1; i++) {
+            unsigned char *acseg = (unsigned char *)malloc(ACSEG_LEN);
+            unsigned int acseg_len;
+            size_t offset = (i - 1) * ACSEG_LEN;
+            // ac_plain2 = concat2(pkt.h.acseg_concat, (i - 1) * ACSEG_LEN, pkt.p.ct, pkt.p.ct_len, &ac_plain2_len);
+            int gmac_result = aes_gmac(me->k[i], KEY_LEN, FIXED_IV, IV_LEN, pkt.p.ct, pkt.p.ct_len, acseg, &acseg_len);
+            int flags = 0; // すべて一致なら1
+            // acseg_concat内の自身のacsegと比較
+            // print_hex("Received ACSEG", pkt.h.acseg_concat + offset, ACSEG_LEN);
+            if (memcmp(acseg, pkt.h.acseg_concat + offset, ACSEG_LEN) == 0) {
+                // printf("R%d ACSEG match\n", i);
+                flags = 1;
+            } else {
+                printf("R%d ACSEG mismatch\n", i);
+            }
+            t_flag += flags;
+            free(acseg);
         }
-        t_flag += flags;
-        free(acseg);
-    }
-    if (t_flag != ROUTERS) {
-        fprintf(stderr, "ACSEG verification failed\n");
-    } else {
-        // printf("All ACSEGs verified\n");
-    }
+        if (t_flag != ROUTERS) {
+            fprintf(stderr, "ACSEG verification failed\n");
+        } else {
+            // printf("All ACSEGs verified\n");
+        }
 
-    // 復号
-    if (!aead_decrypt(nodes[NODES-1].sess_key, pkt.p.ct, pkt.p.ct_len, pkt.h.sid, pkt.p.iv, pkt.p.tag, padplain))
-        die("GCM auth fail at R");
+        // 復号
+        if (!aead_decrypt(nodes[NODES-1].sess_key, pkt.p.ct, pkt.p.ct_len, pkt.h.sid, pkt.p.iv, pkt.p.tag, padplain))
+            die("GCM auth fail at R");
 
-    // --- Padding Fix: 先頭のゼロブロック確認 ---
-    int zero_ok = 1;
-    for (size_t i = 0; i < PAD_LEN; i++) {
-        if (padplain[i] != 0) { zero_ok = 0; break; }
-    }
-    if (!zero_ok) {
-        fprintf(stderr, "Key-commitment verification failed\n");
-    }
-    // 実際のメッセージ部分抽出
-    size_t real_len = padded_len - PAD_LEN;
-    unsigned char *real_msg = padplain + PAD_LEN;
+        // --- Padding Fix: 先頭のゼロブロック確認 ---
+        int zero_ok = 1;
+        for (size_t i = 0; i < PAD_LEN; i++) {
+            if (padplain[i] != 0) { zero_ok = 0; break; }
+        }
+        if (!zero_ok) {
+            fprintf(stderr, "Key-commitment verification failed\n");
+        }
+        // 実際のメッセージ部分抽出
+        size_t real_len = padded_len - PAD_LEN;
+        unsigned char *real_msg = padplain + PAD_LEN;
 
-    // printf("R(R%d) got plaintext: %.*s\n", cur, (int)real_len, (char *)real_msg);
-    end_cycles = rte_rdtsc();
-    receiver_datatrans_cycles += end_cycles - start_cycles; 
-    // }    
+        // printf("R(R%d) got plaintext: %.*s\n", cur, (int)real_len, (char *)real_msg);
+        end_cycles = rte_rdtsc();
+        receiver_datatrans_cycles += end_cycles - start_cycles; 
+        // }    
 
-    int blocked = apply_policy_contract((const char *)real_msg);
-    
-    if (blocked) {
-        // printf("\n======= 責任追跡フェーズ =======\n");
-        US_CTX *us = US_init("secp256k1");
-        if (!us) { fprintf(stderr,"US_init error\n"); return 1; }
-        // 通報用ビルド
-        wire_len = build_overlay_data_trans(frame, sizeof(frame), &pkt);
-        // Rの処理
-        // トラフィックを通報
-        // 本来は保存したkS_pubとsigを使う
-        // 以下の要素をすべて連結 sig_lenとpkt_lenも
-        // S_pub,sig,pkt,plain,node[NODES-1].sess_key,com_concat,pi_concat,dh_pk_concat,state_get_prev(me.pkt.h.sid),τ, sigma_s
-        size_t r1_len, r2_len, r3_len, r4_len, r5_len, r6_len, r7_len, r8_len, r9_len, r10_len, r11_len, r12_len, r13_len, report_len;
-        unsigned char *r1=NULL, *r2=NULL, *r3=NULL, *r4=NULL, *r5=NULL, *r6=NULL, *r7=NULL,*r8=NULL,*r9=NULL,*r10=NULL,*r11=NULL,*r12=NULL,*r13=NULL, *report=NULL;
+        int blocked = apply_policy_contract((const char *)real_msg);
         
-        size_t l2l3_len = write_l2l3_min(frame, sizeof(frame));
-        size_t total_len = l2l3_len + wire_len;
-        // printf("total_len: %zu\n", total_len);
-        
-        // //NIZK用のvを生成　　//レシーバのNIZK用のvはいらない
-        // uint64_t start_cycles = rte_rdtsc();
-        // size_t n2_len, nn2_len;
-        // unsigned char *n2 = concat2(pkt.h.com_concat, MAX_COM, pkt.h.pi_concat, ROUTERS * USIG_LEN, &n2_len);
-        // unsigned char *nn2 = concat2(pkt.h.dh_pk_concat, ROUTERS * PUB_LEN, n2, n2_len, &nn2_len);
-        // // print_hex("nn2", nn2, nn2_len);
-        // size_t v2_len; // sufficient size
-        // unsigned char *v2 = (unsigned char *)malloc(32 *3 + 33 * 2);
-        // //最後のpi_concatを抽出
-        // // print_hex("pi_concat", pi_concat, MAX_PI);
-        // unsigned char *USpi = pkt.h.pi_concat + ROUTERS * USIG_LEN;
-        // // print_hex("USpi", USpi, USIG_LEN);
-        // int ver = US_NIZK_Confirm(us, nn2, nn2_len, me->us_x, me->us_y, USpi , USIG_LEN, &v2, &v2_len);
-        // if (!ver) { fprintf(stderr,"US_NIZK_Confirm error\n"); return 1; }
-        // // print_hex("v2", v2, v2_len);
-        // uint64_t end_cycles = rte_rdtsc();
-        // report_conf_v_cycles = end_cycles - start_cycles;
-        
-        
-        r1 = concat2(kS_pub, PUB_LEN, (unsigned char *)&sig_size, sizeof(sig_size), &r1_len);// 32 + 4B
-        // print_hex("r1", r1, r1_len);
-        r2 = concat2(r1, r1_len, (unsigned char *)sig_bytes, sig_size, &r2_len);// +2034B
-        // print_hex("r2", r2, r2_len);
-        r3 = concat2(r2, r2_len, (unsigned char *)&total_len, sizeof(total_len), &r3_len);// +8B
-        // print_hex("r3", r3, r3_len);
-        r4 = concat2(r3, r3_len, frame, total_len, &r4_len); // 34 + 267B(アカセグ付き)
-        // print_hex("r4", r4, r4_len);
-        r5 = concat2(r4, r4_len, real_msg, (int)real_len, &r5_len); // +11B
-        r6 = concat2(r5, r5_len, nodes[NODES-1].sess_key, KEY_LEN, &r6_len); // +32B
-        r7 = concat2(r6, r6_len, pkt.h.com_concat, MAX_COM, &r7_len);// 132B
-        // print_hex("com_concat", pkt.h.com_concat, MAX_COM);
-        r8 = concat2(r7, r7_len, pkt.h.pi_concat, MAX_PI, &r8_len);// 132B N2からN5
-        r9 = concat2(r8, r8_len, pkt.h.dh_pk_concat, ROUTERS * PUB_LEN, &r9_len);// 128B
-        unsigned char prev_state[4];
-        memcpy(prev_state, nodes[ROUTERS].addr, sizeof(prev_state));
-        r10 = concat2(r9, r9_len, prev_state, sizeof(prev_state), &r10_len);// +4B
-        r11 = concat2(r10, r10_len, t, SIG_LEN, &r11_len); // +64B
-        // print_hex("τ4", t, SIG_LEN);
-        r12 = concat2(r11, r11_len, nodes[NODES-1].state[0].rand_val, sizeof(nodes[NODES-1].state[0].rand_val), &r12_len); // +4B
-        // print_hex("r12", r12, r12_len);
-        // r13 = concat2(r12, r12_len, v2, v2_len, &r13_len); // + 162B
+        if (blocked) {
+            // printf("\n======= 責任追跡フェーズ =======\n");
+            US_CTX *us = US_init("secp256k1");
+            if (!us) { fprintf(stderr,"US_init error\n"); return 1; }
+            // 通報用ビルド
+            wire_len = build_overlay_data_trans(frame, sizeof(frame), &pkt);
+            // Rの処理
+            // トラフィックを通報
+            // 本来は保存したkS_pubとsigを使う
+            // 以下の要素をすべて連結 sig_lenとpkt_lenも
+            // S_pub,sig,pkt,plain,node[NODES-1].sess_key,com_concat,pi_concat,dh_pk_concat,state_get_prev(me.pkt.h.sid),τ, sigma_s
+            size_t r1_len, r2_len, r3_len, r4_len, r5_len, r6_len, r7_len, r8_len, r9_len, r10_len, r11_len, r12_len, r13_len, report_len;
+            unsigned char *r1=NULL, *r2=NULL, *r3=NULL, *r4=NULL, *r5=NULL, *r6=NULL, *r7=NULL,*r8=NULL,*r9=NULL,*r10=NULL,*r11=NULL,*r12=NULL,*r13=NULL, *report=NULL;
+            
+            size_t l2l3_len = write_l2l3_min(frame, sizeof(frame));
+            size_t total_len = l2l3_len + wire_len;
+            // printf("total_len: %zu\n", total_len);
+            
+            // //NIZK用のvを生成　　//レシーバのNIZK用のvはいらない
+            // uint64_t start_cycles = rte_rdtsc();
+            // size_t n2_len, nn2_len;
+            // unsigned char *n2 = concat2(pkt.h.com_concat, MAX_COM, pkt.h.pi_concat, ROUTERS * USIG_LEN, &n2_len);
+            // unsigned char *nn2 = concat2(pkt.h.dh_pk_concat, ROUTERS * PUB_LEN, n2, n2_len, &nn2_len);
+            // // print_hex("nn2", nn2, nn2_len);
+            // size_t v2_len; // sufficient size
+            // unsigned char *v2 = (unsigned char *)malloc(32 *3 + 33 * 2);
+            // //最後のpi_concatを抽出
+            // // print_hex("pi_concat", pi_concat, MAX_PI);
+            // unsigned char *USpi = pkt.h.pi_concat + ROUTERS * USIG_LEN;
+            // // print_hex("USpi", USpi, USIG_LEN);
+            // int ver = US_NIZK_Confirm(us, nn2, nn2_len, me->us_x, me->us_y, USpi , USIG_LEN, &v2, &v2_len);
+            // if (!ver) { fprintf(stderr,"US_NIZK_Confirm error\n"); return 1; }
+            // // print_hex("v2", v2, v2_len);
+            // uint64_t end_cycles = rte_rdtsc();
+            // report_conf_v_cycles = end_cycles - start_cycles;
+            
+            
+            r1 = concat2(kS_pub, PUB_LEN, (unsigned char *)&sig_size, sizeof(sig_size), &r1_len);// 32 + 4B
+            // print_hex("r1", r1, r1_len);
+            r2 = concat2(r1, r1_len, (unsigned char *)sig_bytes, sig_size, &r2_len);// +2034B
+            // print_hex("r2", r2, r2_len);
+            r3 = concat2(r2, r2_len, (unsigned char *)&total_len, sizeof(total_len), &r3_len);// +8B
+            // print_hex("r3", r3, r3_len);
+            r4 = concat2(r3, r3_len, frame, total_len, &r4_len); // 34 + 267B(アカセグ付き)
+            // print_hex("r4", r4, r4_len);
+            r5 = concat2(r4, r4_len, real_msg, (int)real_len, &r5_len); // +11B
+            r6 = concat2(r5, r5_len, nodes[NODES-1].sess_key, KEY_LEN, &r6_len); // +32B
+            r7 = concat2(r6, r6_len, pkt.h.com_concat, MAX_COM, &r7_len);// 132B
+            // print_hex("com_concat", pkt.h.com_concat, MAX_COM);
+            r8 = concat2(r7, r7_len, pkt.h.pi_concat, MAX_PI, &r8_len);// 132B N2からN5
+            r9 = concat2(r8, r8_len, pkt.h.dh_pk_concat, ROUTERS * PUB_LEN, &r9_len);// 128B
+            unsigned char prev_state[4];
+            memcpy(prev_state, nodes[ROUTERS].addr, sizeof(prev_state));
+            r10 = concat2(r9, r9_len, prev_state, sizeof(prev_state), &r10_len);// +4B
+            r11 = concat2(r10, r10_len, t, SIG_LEN, &r11_len); // +64B
+            // print_hex("τ4", t, SIG_LEN);
+            r12 = concat2(r11, r11_len, nodes[NODES-1].state[0].rand_val, sizeof(nodes[NODES-1].state[0].rand_val), &r12_len); // +4B
+            // print_hex("r12", r12, r12_len);
+            // r13 = concat2(r12, r12_len, v2, v2_len, &r13_len); // + 162B
 
-        unsigned char sigma_r[SIG_LEN];
-        size_t sigma_r_len = SIG_LEN;
+            unsigned char sigma_r[SIG_LEN];
+            size_t sigma_r_len = SIG_LEN;
 
-        sign_data(nodes[NODES-1].sk, r12, r12_len, sigma_r, &sigma_r_len);
-        // print_hex("σ_R (signature by receiver)", sigma_r, sigma_r_len);
-        report = concat2(r12, r12_len, sigma_r, sigma_r_len, &report_len);
-        // printf("Report length: %zu\n", report_len);
-        uint64_t total_end_cycles = rte_rdtsc();
-        report_cycles = total_end_cycles - start_cycles;
-        free(r1); free(r2); free(r3); free(r4); free(r5); free(r6); free(r7); free(r8); free(r9);free(r10); free(r11); free(r12);
-        // }
-        // }
+            sign_data(nodes[NODES-1].sk, r12, r12_len, sigma_r, &sigma_r_len);
+            // print_hex("σ_R (signature by receiver)", sigma_r, sigma_r_len);
+            report = concat2(r12, r12_len, sigma_r, sigma_r_len, &report_len);
+            // printf("Report length: %zu\n", report_len);
+            uint64_t total_end_cycles = rte_rdtsc();
+            report_cycles += total_end_cycles - start_cycles;
+            free(r1); free(r2); free(r3); free(r4); free(r5); free(r6); free(r7); free(r8); free(r9);free(r10); free(r11); free(r12);
+        }
+    // }
 
         // // // --- 平均クロックサイクル数 ---
         // double avg_tg_sign = tg_sign_cycles / pkt_count;
@@ -599,12 +595,10 @@ int main(int argc, char *argv[]) {
         // --- report を送信 ---
         // === ソケット送信 ===
         int sock = socket(AF_INET, SOCK_STREAM, 0);
-        int opt = 1;
-        // setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
         sockaddr_in serv_addr{};
         serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(9100);
-        inet_pton(AF_INET, SERVER_ADDR, &serv_addr.sin_addr);
+        serv_addr.sin_port = htons(VR_PORT);
+        inet_pton(AF_INET, V_ADDR, &serv_addr.sin_addr);
 
         if (connect(sock, (sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
             perror("connect");

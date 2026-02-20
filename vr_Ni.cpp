@@ -5,11 +5,7 @@
 
 #include "common_func.h"
 #include "TLS_func.h"
-// #include <rte_debug.h>
-// #include <rte_atomic.h>
-
-#define PORT 9200
-#define SERVER_ADDR "192.168.10.48"
+#include "config.h"
 
 uint64_t pkt_count = 1;
 uint64_t Confirm_cycles = 0;
@@ -76,7 +72,7 @@ int main(int argc, char *argv[]) {
     setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9123);
+    addr.sin_port = htons(VNi_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
     
     // bind(serv_sock, (struct sockaddr*)&addr, sizeof(addr));
@@ -279,7 +275,7 @@ int main(int argc, char *argv[]) {
         printf("[Node] Sent (encrypted) reinq request (%d bytes (ciphertext+ tag))\n", enc_len);
         end_cycles = rte_rdtsc();
         router_cycles += (end_cycles - router_start_cycles);
-        printf("Processed packets: %lu\n", pkt_count);
+        // printf("Processed packets: %lu\n", pkt_count);
         pkt_count++;
     }
     // 平均サイクル数表示
@@ -288,7 +284,7 @@ int main(int argc, char *argv[]) {
     double avg_time_router = (double)router_cycles / (double)pkt_count;
     printf("Average US_NIZK_Confirm cycles: %.2f (%.2f µs)\n", avg_time_confirm, avg_time_confirm / (double)tsc_hz * 1e6);
     printf("Average US_NIZK_Disavow cycles: %.2f (%.2f µs)\n", avg_time_disavow, avg_time_disavow / (double)tsc_hz * 1e6);
-    printf("Average Router processing cycles: %.2f (%.2f µs)\n", avg_time_router, avg_time_router / (double)tsc_hz * 1e6);
+    printf("Average Relay processing cycles: %.2f (%.2f µs)\n", avg_time_router, avg_time_router / (double)tsc_hz * 1e6);
 
     close(client);
     close(serv_sock);
