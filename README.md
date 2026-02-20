@@ -1,5 +1,3 @@
-# フリーメモ
-
 # **LACAN(Lightweight Accountable and Anonymity Netoworking)**
 
 ---
@@ -18,15 +16,15 @@
 
 - OpenSSL
 - DPDK
-- Traceable Signatures［1］
+- libgroupsig
 
-LACANでは追跡可能署名を用いるためhttps://github.com/scmanjarrez/libgroupsig
-を用いてインストールする
+LACANでは追跡可能署名(Traceable Signatures)を用いるためhttps://github.com/scmanjarrez/libgroupsig
+を用いてlibgroupsigをインストールする
 
-実装はubuntu22.05とDPDK20.05を用いてテストしている
+実装はUbuntu22.05とOpenSSL1.1.1、DPDK20.05を用いてテストしている
 
 ```jsx
-git clone 
+git clone https://github.com/naoya402/LACAN.git
 ```
 
 DPDKのリンク確立のために以下を実行
