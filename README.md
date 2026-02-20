@@ -1,9 +1,8 @@
-# **LACAN(Lightweight Accountable and Anonymity Netoworking)**
+# **LACAN(Lightweight Accountable and Anonymity Networking)**
 
 ---
 
-このリポジトリは「Making Accountability in Anonymous Networks Real」で提案されたLACANをC言語で実装したライブラリである．詳細な処理は論文のAppendixの「A Protocol Specification
-」に示しており，このライブラリはそれらをもとに実装している．
+このリポジトリは「Making Accountability in Anonymous Networks Real」で提案されたLACANをC言語で実装したライブラリである．詳細な処理は論文のAppendixの「A Protocol Specification」に示しており，このライブラリはそれらをもとに実装している．
 
 このリポジトリは以下を確認できる．
 
@@ -57,7 +56,7 @@ EAL引数の一部で、サービスに使用する論理コアの範囲を指�
 送信されるイーサネットフレームのサイズ（バイト）を指定
 
 #### userset
-ユーザー設定をタプル形式で指定
+ (Port ID, Queue ID, lcore ID)をタプル形式で指定
 
 
 通報フェーズはg++で実行ファイルを生成して実行
@@ -164,7 +163,23 @@ g++ vr_Ni.cpp common_func.c TLS_func.c -lcrypto -lgroupsig -lrte_eal -lm -lz -o 
 
 受信者側で通報パケット数pkt_countを調整してVとNiの処理の平均レイテンシを算出できる
 
-例:
-```jsx
+例(リレー数 n＝3):
 
+V
+```jsx
+Average Report processing cycles: 1752471.00 (473.64 µs)
+Average Open cycles: 1320892.00 (357.00 µs)
+Average US_NIZK_Confirm cycles: 15390323.00 (4159.55 µs)
+Average US_NIZK_Disavow cycles: 2236230.00 (604.39 µs)
+Average Com_Verify cycles: 6833.00 (1.85 µs)
+Average τ_verify cycles: 670654.00 (181.26 µs)
+Average Reveal cycles: 15024.89 (4.07 µs)
+Average Trace cycles: 10411069.87 (2816.85 µs)
+Average Inquiry processing cycles: 18307682.00 (4948.02 µs)
+```
+Ni
+```jsx
+Average US_NIZK_Confirm cycles: 2675276.00 (1337.64 µs)
+Average US_NIZK_Disavow cycles: 3137534.00 (1568.77 µs)
+Average Relay processing cycles: 5836891.00 (2918.45 µs)
 ```
