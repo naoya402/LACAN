@@ -2,7 +2,7 @@
 
 ---
 
-このリポジトリは「Making Accountability in Anonymous Networks Real」で提案されたLACANをC言語で実装したライブラリである．詳細な処理は当該論文のAppendixの「A Protocol Specification
+このリポジトリは「Making Accountability in Anonymous Networks Real」で提案されたLACANをC言語で実装したライブラリである．詳細な処理は論文のAppendixの「A Protocol Specification
 」に示しており，このライブラリはそれらをもとに実装している．
 
 このリポジトリは以下を確認できる．
@@ -35,7 +35,30 @@ DPDKのリンク確立のために以下を実行
 
 ### **コンパイル方法**
 
-経路設定フェーズMakefileを用いて実行ファイル(dpdk_test)を生成して実行
+経路設定フェーズMakefileを用いて実行ファイル(dpdk_test)を生成してrun.shで実行
+
+run.sh内の引数
+```jsx
+./build/dpdk_test [-c <coremask>] [-n <channels>] -- [--lcores <lcores>] [--tx_rate <rate>] [--frame_size <size>] [--userset <userset>]
+```
+coremask
+使用するCPUコアをビットマスクで指定し特定の論理コアを有効化
+
+channels
+システムのメモリチャネル数を指定
+
+lcores
+EAL引数の一部で、サービスに使用する論理コアの範囲を指定
+
+rate
+パケットの送信レート(pps)を指定
+
+size
+送信されるイーサネットフレームのサイズ（バイト）を指定
+
+userset
+ユーザー設定をタプル形式で指定
+
 
 通報フェーズはg++で実行ファイルを生成して実行
 
@@ -76,11 +99,7 @@ key_setup.cppを実行し各種暗号で使用する以下の鍵やリストを�
 
 ### 経路設定フェーズ
 
-追跡可能署名をパケットに乗せるためジャンボフレームに対応させる
-
-**ジャンボフレーム対応手順**
-
-送信側ではmainrev.cpp、受信側ではmainrev.cppを実行
+送信側ではps_sender.cpp、受信側ではps_receiver.cppを実行
 
 Makefileで上記ファイルを指定し以下のように実行
 
@@ -97,7 +116,7 @@ make
 
 ### データ転送フェーズ
 
-送信側はmainrev.cpp、受信側はmainrev.cpp
+送信側はdt_sender.cpp、受信側はdt_receiver.cpp
 
 Makefileで上記ファイルを指定し以下のように実行
 
@@ -124,12 +143,12 @@ run.shの送信レートをあげる
 
 ### **通報フェーズ**
 
-受信者はRpathset.cpp、検証者はVAcc、各リレーはRiAcc
+受信者はvr_R.cpp、検証者はvr_V.cpp、各リレーはvr_Ni.cpp
 
-※RiAccはリレー数ROUTERSのときN_ROUTERSを表し前ノードとしてN_1を返すようにしている 
+※vr_Niはリレー数ROUTERSのときN_ROUTERSを表し前ノードとしてN_1を返すようにしている 
 
 ```jsx
-g++ VAcc.cpp common_func.c TLS_func.c -lcrypto -lgroupsig -lrte_eal -lm -lz -o VAcc
+g++ vr_Ni.cpp common_func.c TLS_func.c -lcrypto -lgroupsig -lrte_eal -lm -lz -o vr_Ni
 ./VAcc
 ```
 
