@@ -41,22 +41,22 @@ run.sh内の引数
 ```jsx
 ./build/dpdk_test [-c <coremask>] [-n <channels>] -- [--lcores <lcores>] [--tx_rate <rate>] [--frame_size <size>] [--userset <userset>]
 ```
-coremask
+#### coremask
 使用するCPUコアをビットマスクで指定し特定の論理コアを有効化
 
-channels
+#### channels
 システムのメモリチャネル数を指定
 
-lcores
+#### lcores
 EAL引数の一部で、サービスに使用する論理コアの範囲を指定
 
-rate
+#### rate
 パケットの送信レート(pps)を指定
 
-size
+#### size
 送信されるイーサネットフレームのサイズ（バイト）を指定
 
-userset
+#### userset
 ユーザー設定をタプル形式で指定
 
 
@@ -108,11 +108,14 @@ make
 ./run.sh
 ```
 
-**レイテンシ**
+#### 出力
 
 受信側で受信パケット数n_all_rxの上限を調整してNiの平均レイテンシを算出できる
 
 例:
+```jsx
+
+```
 
 ### データ転送フェーズ
 
@@ -125,21 +128,24 @@ make
 ./run.sh
 ```
 
-**レイテンシ**
+#### 出力
 
 受信側の受信パケット数n_all_rxの上限を調整してNiの平均レイテンシを算出できる
 
 例:
+```jsx
 
-**スループット**
+```
+
 
 送信側で送信開始から受信までの秒数を調整し送受信パケット比(パケットロス)が1%まで
 
 run.shの送信レートをあげる
 
-ペイロードはrun.shのframesize、common_func.hの**MAX_PTXT**で調整
-
 例: 
+```jsx
+
+```
 
 ### **通報フェーズ**
 
@@ -154,8 +160,11 @@ g++ vr_Ni.cpp common_func.c TLS_func.c -lcrypto -lgroupsig -lrte_eal -lm -lz -o 
 
 なお、サイクル数計測でrte_rdtscを用いるため-lrte_ealを含めている
 
-**レイテンシ**
+#### 出力
 
 受信者側で通報パケット数pkt_countを調整してVとNiの処理の平均レイテンシを算出できる
 
 例:
+```jsx
+
+```
