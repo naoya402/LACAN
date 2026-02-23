@@ -37,7 +37,7 @@ __thread uint64_t router_cycles = 0;
 /* スレッドローカルの FILE* を使う（各 lcore ごとに独立したファイルを開く） */
 static __thread FILE *router_cycle_fp = NULL;
 
-
+/* ======= 固定TLS鍵とIV,AAD (handshake省略) ======= */
 static const uint8_t KEY[32] = {
     0xc7,0xb5,0x68,0x7a,0xfb,0xc2,0xfc,0x4f,
     0xc8,0xf1,0x15,0xb0,0x18,0x0d,0x9d,0x26,
@@ -144,9 +144,9 @@ void log_router_cycles(uint64_t cycles)
     if (router_cycle_fp == NULL) {
         /* lcore id を取得して per-lcore ファイルを作る */
       //   unsigned lcore = rte_lcore_id()
-       int Input_rate = 100; //最大スループット29.5ppsに対する割合
+       int Input_rate = 100;
         char fname[128];
-        int n = snprintf(fname, sizeof(fname), "/home/n-takada/router_cycles/router_cycles_1322B_%d%%.csv", Input_rate);
+        int n = snprintf(fname, sizeof(fname), "/router_cycles/router_cycles_1322B_%d%%.csv", Input_rate);
         (void)n;
         router_cycle_fp = fopen(fname, "w");
         if (router_cycle_fp == NULL) {
@@ -364,43 +364,13 @@ static int run_forwarder(__rte_unused void *arg)
         // print_hex("derived ", node->k[i], KEY_LEN);
     }
 
-    me = &nodes[0];
-    // グループ署名を取得して SID を計算
+    //  SID を計算
     unsigned char kS_pub[PUB_LEN];
-    get_raw_pub(me->dh_sk, kS_pub);
-   
-    // --- SID 生成 ---
+    get_raw_pub(nodes[0].dh_sk, kS_pub);
     unsigned char sid[SID_LEN];
     hash_sid(kS_pub, PUB_LEN, sid);
     print_hex("SID(S)=H(kC)", sid, SID_LEN);
 
-   //  free(uc_sig);
-   // if (sig_bytes) free(sig_bytes);
-
-    // ステート準備
-    // 受信側で τ4 を生成(復路の検証用 state から取得)
-   //  me = &nodes[4]; // R4
-   //  unsigned char t[SIG_LEN];
-   //  size_t tau_len = SIG_LEN, m_len;
-   //  unsigned char *m = concat2(sid, SID_LEN, me->addr, 4, &m_len);
-   //  sign_data(me->sk, m, m_len, t, &tau_len);
-   //  free(m);
-
-   
-   //  // 検証のため固定
-   //  int next_addr = (me->id < NODES-1) ? (me->id + 1) : me->id;
-   //  int nnext_addr = (next_addr < NODES-1) ? (next_addr + 1) : next_addr;
-   //  //前ホップを決定
-   //  int prev_addr = me->id - 1;
-   //  // ステート保存 
-   //  // R4のステート(復路用)
-   // //  state_set(me, sid, prev_addr, next_addr, nnext_addr, t, tau_len);
-   //R4のステート（データ転送用)
-   //  me = &nodes[ROUTERS]; // R4
-   // //  printf("ROUTERS=%d\n", ROUTERS);
-   //  m = concat2(sid, SID_LEN, me->addr, 4, &m_len);
-   //  sign_data(me->sk, m, m_len, t, &tau_len);
-   //  free(m);
    // 受信側で τ_ROUTERSを生成(復路の検証用&通報用)
    Node *nod = &nodes[ROUTERS];
    unsigned char t[SIG_LEN];
@@ -417,7 +387,7 @@ static int run_forwarder(__rte_unused void *arg)
    free(g2);
     unsigned char temp_rand[4] = {0x11, 0x11, 0x11, 0x11};
     for (int i=0; i < MAX_STATE - 1; i++) {
-        state_set(me, sid, nodes[ROUTERS - 1].addr, nodes[ROUTERS + 1].addr, nod->addr, t, temp_rand);
+        state_set(nod, sid, nodes[ROUTERS - 1].addr, nodes[ROUTERS + 1].addr, nod->addr, t, temp_rand);
       //   printf("R3 state %d set\n", i);
     }
    // printf("R3 state set\n");
@@ -506,11 +476,11 @@ static int run_forwarder(__rte_unused void *arg)
                uint64_t cycles = end - start;
                router_cycles += cycles;
                // printf("%" PRIu64 "\n", end-start);
-               if (n_all_rx > 100) { // ウォームアップ後に計測
-                  if (cycles > 1000 && cycles < 20000) { // 異常値除去
-                     log_router_cycles(cycles);
-                  }
-               }
+               // if (n_all_rx > 100) { // ウォームアップ後に計測
+               //    if (cycles > 1000 && cycles < 20000) { // 異常値除去
+               //       log_router_cycles(cycles);
+               //    }
+               // }
             }
             n_all_rx += nb_rx;
 
@@ -581,15 +551,15 @@ static int run_forwarder(__rte_unused void *arg)
    double hz = (double)rte_get_tsc_hz();
    printf("\nDPDK TSC Hz: %.2f\n", hz);
    printf("\n=== Average Cycles per Packet (total: %lu packets) ===\n", n_all_rx);
-   printf("τ verification:  %.2f cycles  (%.2f µs)\n", avg_verify_tau, avg_verify_tau / hz * 1e6);
-   printf("π verification:  %.2f cycles  (%.2f µs)\n", avg_verify_pi, avg_verify_pi / hz * 1e6);
-   printf("C commitment:   %.2f cycles  (%.2f µs)\n", avg_com_c, avg_com_c / hz * 1e6);
-   printf("π signing:       %.2f cycles  (%.2f µs)\n", avg_sign_pi, avg_sign_pi / hz * 1e6);
-   printf("V confirmation:  %.2f cycles  (%.2f µs)\n", avg_conf_v, avg_conf_v / hz * 1e6);
-   printf("τ signing:       %.2f cycles  (%.2f µs)\n", avg_sign_tau, avg_sign_tau / hz * 1e6);
-   printf("ACSEG generation:  %.2f cycles  (%.2f µs)\n", avg_datatrans_gen_acseg, avg_datatrans_gen_acseg / hz * 1e6);
-   printf("ACSEG verification:  %.2f cycles  (%.2f µs)\n", avg_datatrans_verify_acseg, avg_datatrans_verify_acseg / hz * 1e6);
-   printf("Router process:  %.2f cycles  (%.2f µs)\n", avg_router, avg_router / hz * 1e6);
+   printf("Average τ verification:  %.2f cycles  (%.2f µs)\n", avg_verify_tau, avg_verify_tau / hz * 1e6);
+   printf("Average π verification:  %.2f cycles  (%.2f µs)\n", avg_verify_pi, avg_verify_pi / hz * 1e6);
+   printf("Average C commitment:   %.2f cycles  (%.2f µs)\n", avg_com_c, avg_com_c / hz * 1e6);
+   printf("Average π signing:       %.2f cycles  (%.2f µs)\n", avg_sign_pi, avg_sign_pi / hz * 1e6);
+   printf("Average V confirmation:  %.2f cycles  (%.2f µs)\n", avg_conf_v, avg_conf_v / hz * 1e6);
+   printf("Average τ signing:       %.2f cycles  (%.2f µs)\n", avg_sign_tau, avg_sign_tau / hz * 1e6);
+   printf("Average MAC generation:  %.2f cycles  (%.2f µs)\n", avg_datatrans_gen_acseg, avg_datatrans_gen_acseg / hz * 1e6);
+   printf("Average MAC verification:  %.2f cycles  (%.2f µs)\n", avg_datatrans_verify_acseg, avg_datatrans_verify_acseg / hz * 1e6);
+   printf("Average Relay process:  %.2f cycles  (%.2f µs)\n", avg_router, avg_router / hz * 1e6);
    slave_finish_signal[lcore_id] = true;
    rte_free(nodes);
    // printf("lcore %d exiting...\n", lcore_id);

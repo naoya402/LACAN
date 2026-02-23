@@ -6,7 +6,7 @@
 // #include "func.h"
 
 
-// // 往路の測定用
+// 経路設定フェーズの測定用
 __thread uint64_t for_verify_tau_cycles = 0;
 __thread uint64_t for_verify_pi_cycles = 0;
 __thread uint64_t for_com_c_cycles = 0;
@@ -26,6 +26,7 @@ static const uint8_t FIXED_IV[12] = {
     0xaf,0xb0,0x1e,0x8f
 };
 
+// バイト列連結
 unsigned char* concat2(const unsigned char *a, size_t alen, const unsigned char *b, size_t blen, size_t *outlen) {
     *outlen = alen + blen;
     unsigned char *buf = (unsigned char*)malloc(*outlen);
@@ -35,7 +36,7 @@ unsigned char* concat2(const unsigned char *a, size_t alen, const unsigned char 
     return buf;
 }
 
-// AES-GCM暗号化
+// AES-GCM暗号化/復号
 void aead_encrypt(const unsigned char key[KEY_LEN],const unsigned char *pt, size_t pt_len, const unsigned char sid[SID_LEN], unsigned char iv[IV_LEN], unsigned char *ct, unsigned char tag[TAG_LEN]) {
     // RAND_bytes(iv, IV_LEN);
     rte_memcpy(iv, FIXED_IV, IV_LEN);
@@ -70,6 +71,7 @@ int aead_decrypt(const unsigned char key[KEY_LEN], const unsigned char *ct, size
     return ok == 1; // 1=auth OK
 }
 
+// Ed25519 署名・検証
 void sign_data(EVP_PKEY *sk, const unsigned char *data, size_t datalen, unsigned char *sig, size_t *siglen) {
     if (!mdctx1) die_ossl("EVP_MD_CTX_new");
     if (EVP_DigestSign(mdctx1, sig, siglen, data, datalen) <= 0)
@@ -84,15 +86,21 @@ int verify_sig(EVP_PKEY *pk, const unsigned char *data, size_t datalen, const un
     return ok == 1;
 }
 
-// ステート操作
-void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char *prev_addr, unsigned char *next_addr, unsigned char *nnext_addr, const unsigned char *tau, unsigned char rand_val[4]) {
+// ステートのセット
+void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char prev_addr[4], unsigned char next_addr[4], unsigned char *nnext_addr, const unsigned char *tau, unsigned char rand_val[4]) {
     for (int i=0;i<MAX_STATE;i++) {
         if (!n->state[i].used) {
             n->state[i].used = 1;
             rte_memcpy(n->state[i].sid, sid, SID_LEN);
-            rte_memcpy(&n->state[i].prev_addr, &prev_addr, 4);
-            rte_memcpy(&n->state[i].next_addr, &next_addr, 4);
-            rte_memcpy(&n->state[i].nnext_addr, &nnext_addr, 4);
+            if (prev_addr) {
+                rte_memcpy(n->state[i].prev_addr, prev_addr, 4);
+            }
+            if (next_addr) {
+                rte_memcpy(n->state[i].next_addr, next_addr, 4);
+            }
+            if (nnext_addr) {
+                rte_memcpy(n->state[i].nnext_addr, nnext_addr, 4);
+            }
             if (tau) {
                 rte_memcpy(n->state[i].tau, tau, SIG_LEN);
             }
@@ -103,7 +111,7 @@ void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char *prev_ad
     die("state full");
 }
 
-//========= オーバーレイ領域ヘッダ & ペイロード=========
+// L2/L3ヘッダの末尾位置を返す/
 size_t read_l2l3_min(const unsigned char *frame, size_t frame_len) {
     size_t l2len = sizeof(struct rte_ether_hdr);
     const struct rte_ipv4_hdr *ip = (const struct rte_ipv4_hdr*)(frame + l2len);
@@ -116,7 +124,7 @@ size_t read_l2l3_min(const unsigned char *frame, size_t frame_len) {
     return l3end;
 }
 
-// SETUP_REQ を 34B(=L3末) から書く
+// 経路設定フェーズのパケット を 34B(=L3末) から書く
 size_t build_overlay_setup_req(struct rte_mbuf *mbuf, const Packet *pkt) {
     size_t off = sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr);
     unsigned char *p = rte_pktmbuf_mtod_offset(mbuf, unsigned char*, off);
@@ -176,7 +184,7 @@ size_t build_overlay_setup_req(struct rte_mbuf *mbuf, const Packet *pkt) {
     return need;
 }
 
-// DATA_TRANS を書く
+// データ転送フェーズのパケット を 34B(=L3末) から書く
 size_t build_overlay_data_trans(struct rte_mbuf *mbuf, const Packet *pkt) {
     size_t off = sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr);
     unsigned char *p = rte_pktmbuf_mtod_offset(mbuf, unsigned char*, off);
@@ -293,7 +301,7 @@ int parse_frame_to_pkt(const unsigned char *frame, size_t frame_len, Packet *pkt
     return 0;
 }
 
-// リレー処理（SETUP_REQの中継）
+// 経路設定フェーズのリレー処理
 int router_handle_forward(struct rte_mbuf *mbuf, Node *nodes) {
     US_CTX *us = US_init("secp256k1");
     if (!us) { fprintf(stderr,"US_init error\n"); return 1; }
@@ -519,7 +527,7 @@ int router_handle_forward(struct rte_mbuf *mbuf, Node *nodes) {
     return 0;
 }
 
-// リレー処理（DATA_TRANSの中継）
+// データ転送フェーズのリレー処理
 int router_handle_data_trans(struct rte_mbuf *mbuf, Node *nodes) {
     uint64_t router_start_cycles = rte_rdtsc();
    // mbuf から生ポインタと長さを取得
@@ -543,12 +551,12 @@ int router_handle_data_trans(struct rte_mbuf *mbuf, Node *nodes) {
     }
 
     // ステートを見て転送先決める 本来はこの後宛先のアドレスに設定
-    // printf("%d\n", me->id);// 3
     // print_hex("prev_addr", state_get_prev(me, pkt.h.sid), 4);
     unsigned char next_addr[4];
     rte_memcpy(next_addr, state_get_next(me, pkt.h.sid), 4); //4のはず
     int next_idx = next_addr[3];
-    // printf("Next addr: %d\n", next_addr);
+    // printf("Next addr: %u.%u.%u.%u\n", next_addr[0], next_addr[1], next_addr[2], next_addr[3]);
+    // printf("Next addr: %d\n", next_addr[3]);
 
     // Sからのアカセグ検証
     uint64_t start_cycles = rte_rdtsc();

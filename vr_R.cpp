@@ -116,12 +116,6 @@ int main(int argc, char *argv[]) {
 
     //グループ署名生成
     groupsig_init(GROUPSIG_KTY04_CODE, time(NULL));
-    // groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);
-    // char *cstr = groupsig_grp_key_to_string(grpkey);
-    // // printf("grpkey: %s\n", cstr);
-    // groupsig_key_t *memkey = load_key_from_file("memkey.pem", GROUPSIG_KTY04_CODE, groupsig_mem_key_import);
-    // // message_t *gsm = message_from_string((char *)kC_pub);
-    // 読み込みだけで鍵作成ができるか確認
     groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);//groupsig_grp_key_init(GROUPSIG_KTY04_CODE);
     groupsig_key_t *mgrkey = load_key_from_file("mgrkey.pem", GROUPSIG_KTY04_CODE, groupsig_mgr_key_import);//groupsig_mgr_key_init(GROUPSIG_KTY04_CODE);
     groupsig_key_t *memkey = load_key_from_file("memkey.pem", GROUPSIG_KTY04_CODE, groupsig_mem_key_import);;//groupsig_mem_key_init(GROUPSIG_KTY04_CODE);
@@ -313,12 +307,7 @@ int main(int argc, char *argv[]) {
     start_cycles = rte_rdtsc();
     tsconcat = concat2(pkt.p.peer_pub, PUB_LEN, pkt.p.ts, 4, &tsconcat_len);
     message_t *ppp = message_from_bytes(tsconcat, tsconcat_len);
-    // groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);
-    // print_hex("R verifying signature", pkt.p.sig_bytes, sig_len);
     groupsig_signature_t *gsig = groupsig_signature_import(GROUPSIG_KTY04_CODE, pkt.p.sig_bytes, pkt.p.sig_len);
-    // char *strsig2 = groupsig_signature_to_string(gsig);
-    // printf("V: gsig: %s\n", strsig2);
-    // free(strsig2);
     groupsig_verify(&valid, gsig, ppp, grpkey);
     // printf("TGsig verification: %s\n", valid ? "valid" : "invalid");
     end_cycles = rte_rdtsc();
@@ -455,7 +444,7 @@ int main(int argc, char *argv[]) {
         // MAC確認
         int t_flag = 0;
         for (int i = 1; i < NODES - 1; i++) {
-            unsigned char *acseg = (unsigned char *)malloc(ACSEG_LEN);
+            unsigned char acseg[ACSEG_LEN];
             unsigned int acseg_len;
             size_t offset = (i - 1) * ACSEG_LEN;
             // ac_plain2 = concat2(pkt.h.acseg_concat, (i - 1) * ACSEG_LEN, pkt.p.ct, pkt.p.ct_len, &ac_plain2_len);
@@ -470,7 +459,6 @@ int main(int argc, char *argv[]) {
                 printf("R%d ACSEG mismatch\n", i);
             }
             t_flag += flags;
-            free(acseg);
         }
         if (t_flag != ROUTERS) {
             fprintf(stderr, "ACSEG verification failed\n");
@@ -571,10 +559,10 @@ int main(int argc, char *argv[]) {
             uint64_t total_end_cycles = rte_rdtsc();
             report_cycles += total_end_cycles - start_cycles;
             free(r1); free(r2); free(r3); free(r4); free(r5); free(r6); free(r7); free(r8); free(r9);free(r10); free(r11); free(r12);
-        }
+        // }
     // }
 
-        // // // --- 平均クロックサイクル数 ---
+        // --- 平均クロックサイクル数 ---
         // double avg_tg_sign = tg_sign_cycles / pkt_count;
         // double avg_tg_verify = tg_verify_cycles / pkt_count;
         // double avg_sender_setup = (double)sender_setup_cycles / pkt_count;
@@ -632,12 +620,10 @@ int main(int argc, char *argv[]) {
     }
             
     // 後処理
-    // groupsig_signature_free(gsig);
-    // groupsig_mem_key_free(memkey);
-    // groupsig_grp_key_free(grpkey);
+    groupsig_signature_free(gsig);
+    groupsig_mem_key_free(memkey);
+    groupsig_grp_key_free(grpkey);
+    groupsig_mgr_key_free(mgrkey);
     groupsig_clear(GROUPSIG_KTY04_CODE);
-
-    // free(sig_bytes);
-    // free(sid);
     return 0;
 }

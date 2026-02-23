@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 #include "common_func.h"
-#include "TLS_func.h"
-// #include "DPDK_func.h"
+// #include "TLS_func.h"
+#include "DPDK_func.h"
 
 const char* router_addresses[] = {
     "192.168.10.0",
@@ -23,23 +23,20 @@ const char* router_addresses[] = {
 const char *policy[] = {"attack", "leak", "bomb", "hello"};
 const int POLICY_COUNT = sizeof(policy) / sizeof(policy[0]);
 
-// // MACとセッションの暗号化通信で用いる
-// static const uint8_t FIXED_IV[12] = {
-//     0xf4,0x83,0x3e,0x10,0xa4,0x38,0xbf,0x13,
-//     0xaf,0xb0,0x1e,0x8f
-// };
-
+// エラー処理
 void die(const char *msg) {
     fprintf(stderr, "FATAL: %s\n", msg);
     exit(EXIT_FAILURE);
 }
 
+// OpenSSLエラー処理
 void die_ossl(const char *msg) {
     fprintf(stderr, "OpenSSL ERROR: %s\n", msg);
     ERR_print_errors_fp(stderr);
     exit(EXIT_FAILURE);
 }
 
+// バイト列を16進数で表示
 void print_hex(const char *label, const unsigned char *buf, size_t len) {
     printf("%s (%zu bytes): ", label, len);
     for (size_t i = 0; i < len; i++) printf("%02x", buf[i]);
@@ -121,6 +118,7 @@ EVP_PKEY* import_x25519_pub(const unsigned char *pub) {
     return p;
 }
 
+// SIDの計算
 void hash_sid(const unsigned char *sid_data, size_t sid_data_len, unsigned char sid[SID_LEN]) {
     SHA256(sid_data, sid_data_len, sid);
 }
@@ -150,6 +148,7 @@ void init_crypto(EVP_PKEY *sk, EVP_PKEY *pk) {
         die_ossl("EVP_DigestVerifyInit");
 }
 
+// AES-GMAC (タグ生成)
 int aes_gmac(const unsigned char *key, size_t keylen, const unsigned char *iv, size_t ivlen, const unsigned char *data, size_t datalen, unsigned char out[ACSEG_LEN], unsigned int *out_len){
     if (!key || keylen == 0 || !iv || ivlen == 0 || (!data && datalen > 0) || !out || !out_len) {
         return -1;
@@ -234,6 +233,7 @@ void node_init(Node *node, int id, const char *addr) {
 
 }
 
+// ノードのリソース解放
 void node_free(Node *n) {
     if (n->dh_sk) EVP_PKEY_free(n->dh_sk);
     if (n->dh_pk) EVP_PKEY_free(n->dh_pk);
@@ -244,6 +244,7 @@ void node_free(Node *n) {
     // if (n->us) US_free(n->us);
 }
 
+// SIDに紐づく次ノードアドレスの取得
 const unsigned char* state_get_next(const Node *n, const unsigned char sid[SID_LEN]) {
     for (int i=0;i<MAX_STATE;i++) {
         if (n->state[i].used && memcmp(n->state[i].sid, sid, SID_LEN)==0)
@@ -255,6 +256,7 @@ const unsigned char* state_get_next(const Node *n, const unsigned char sid[SID_L
     return 0;
 }
 
+// SIDに紐づく前ノードアドレスの取得
 const unsigned char* state_get_prev(const Node *n, const unsigned char sid[SID_LEN]) {
     for (int i=0;i<MAX_STATE;i++) {
         if (n->state[i].used && memcmp(n->state[i].sid, sid, SID_LEN)==0)
@@ -265,7 +267,7 @@ const unsigned char* state_get_prev(const Node *n, const unsigned char sid[SID_L
     }
     return 0;
 }
-
+// SIDに紐づくτの取得
 const unsigned char* state_get_tau(const Node *n, const unsigned char sid[SID_LEN]) {
     for (int i=0;i<MAX_STATE;i++) {
         if (n->state[i].used && memcmp(n->state[i].sid, sid, SID_LEN)==0)
@@ -277,7 +279,7 @@ const unsigned char* state_get_tau(const Node *n, const unsigned char sid[SID_LE
     return NULL;
 }
 
-// π-list をセッションID (SID) ごとに保存
+// π-list をセッションID (SID) ごとに保存、読み込みする関数
 int save_pi_list(const unsigned char sid[SID_LEN], const unsigned char *pi_concat, size_t pi_len) {
     // char filename[128];
     // // SIDの先頭8バイトをファイル名に利用
@@ -334,6 +336,7 @@ int load_pi_list(const char *filename, unsigned char sid[SID_LEN], unsigned char
     return 0;
 }
 
+// ポリシー違反の検出
 int apply_policy_contract(const char *msg) {
     if (!msg) return 0;
     for (int i = 0; i < POLICY_COUNT; i++) {

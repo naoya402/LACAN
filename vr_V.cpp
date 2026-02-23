@@ -63,9 +63,9 @@ int main(int argc, char *argv[]) {
     // グループ署名初期化
     groupsig_init(GROUPSIG_KTY04_CODE, time(NULL));
     // グループ署名に必要な鍵などを読み込み
-    groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);//groupsig_grp_key_init(GROUPSIG_KTY04_CODE);
-    groupsig_key_t *mgrkey = load_key_from_file("mgrkey.pem", GROUPSIG_KTY04_CODE, groupsig_mgr_key_import);//groupsig_mgr_key_init(GROUPSIG_KTY04_CODE);
-    groupsig_key_t *memkey = load_key_from_file("memkey.pem", GROUPSIG_KTY04_CODE, groupsig_mem_key_import);;//groupsig_mem_key_init(GROUPSIG_KTY04_CODE);
+    groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);
+    groupsig_key_t *mgrkey = load_key_from_file("mgrkey.pem", GROUPSIG_KTY04_CODE, groupsig_mgr_key_import);
+    groupsig_key_t *memkey = load_key_from_file("memkey.pem", GROUPSIG_KTY04_CODE, groupsig_mem_key_import);
     // gml読み込み
     FILE *fgml = fopen("gml.dat", "rb");
     if (!fgml) die("fopen gml.dat");
@@ -173,17 +173,8 @@ int main(int argc, char *argv[]) {
         
         unsigned char report[dec_len];
         memcpy(report, dec, dec_len);
-        // free(dec);
-
-        // uint32_t len_n;
-        // recv(client, &len_n, sizeof(len_n), 0);
-        // uint32_t len = ntohl(len_n);
-
-        // unsigned char report[len];
-        // recv(client, report, len, MSG_WAITALL);
-        // printf("[Verifier] Received report (%u bytes)\n", len);
-        // print_hex("report", report, len);
-
+        free(dec);
+        
         // 通報パケットのパース
         uint64_t start_cycles = rte_rdtsc();
         size_t offset = 0;

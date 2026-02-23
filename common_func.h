@@ -101,9 +101,7 @@ using namespace std;
 #define MAX_COM ((ROUTERS + 1) * COM_LEN)
 #define MAX_PI ((ROUTERS + 1) * USIG_LEN)
 #define ACSEG_LEN 16
-// #define MAX_ACSEG_CON ROUTERS * ACSEG_LEN
-#define MAX_PTXT 128 // メッセージペイロード最大長
-// #define MAX_PKT  4096
+#define MAX_PTXT 1322 // メッセージペイロード最大長
 #define MAX_STATE  10
 #define PAD_LEN 32  // PAD_LEN*8 bit分のパディング 1ブロック=128bit
 // #define FRAME_SIZE 4096
@@ -119,19 +117,6 @@ extern const char *policy[];
 extern const int POLICY_COUNT;
 // extern __thread EVP_MD_CTX *mdctx1, *mdctx2;// 共通で使うのは避けるべき
 
-
-
-// // 往路の測定用
-// extern __thread uint64_t for_verify_tau_cycles;
-// extern __thread uint64_t for_verify_pi_cycles;
-// extern __thread uint64_t for_com_c_cycles;
-// extern __thread uint64_t for_sign_pi_cycles;
-// extern __thread uint64_t for_conf_v_cycles;
-// extern __thread uint64_t for_sign_tau_cycles;
-
-// //データ転送の測定用
-// extern __thread uint64_t datatrans_gen_acseg_cycles;
-// extern __thread uint64_t datatrans_verify_acseg_cycles;
 
 // ---- 共通ヘッダ ----
 // SID(16) | STATUS(1) | idx(1)
@@ -241,7 +226,6 @@ void init_crypto(EVP_PKEY *sk, EVP_PKEY *pk);
 int aes_gmac(const unsigned char *key, size_t keylen, const unsigned char *iv, size_t ivlen, const unsigned char *data, size_t datalen, unsigned char out[ACSEG_LEN], unsigned int *out_len);
 void node_init(Node *node, int id, const char *addr);
 void node_free(Node *n);
-// void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char prev_addr,  unsigned char next_addr, unsigned char nnext_addr, const unsigned char *tau, unsigned char rand_val[4]);
 const unsigned char* state_get_next(const Node *n, const unsigned char sid[SID_LEN]);
 const unsigned char* state_get_prev(const Node *n, const unsigned char sid[SID_LEN]);
 const unsigned char* state_get_tau(const Node *n, const unsigned char sid[SID_LEN]);

@@ -37,7 +37,7 @@ __thread uint64_t router_cycles = 0;
 /* スレッドローカルの FILE* を使う（各 lcore ごとに独立したファイルを開く） */
 static __thread FILE *router_cycle_fp = NULL;
 
-
+/* ======= 固定TLS鍵とIV,AAD (handshake省略) ======= */
 static const uint8_t KEY[32] = {
     0xc7,0xb5,0x68,0x7a,0xfb,0xc2,0xfc,0x4f,
     0xc8,0xf1,0x15,0xb0,0x18,0x0d,0x9d,0x26,
@@ -63,7 +63,6 @@ unsigned char ts[4] = {0, 1, 2, 3};
 // size_t FRAME_SIZE = 1024;
 // double TX_INTERVAL = 0.00000019;
 
-// --- TLS key material shared between handshake and DPDK ---
 static unsigned char tls_key[64];   // 32..64 bytes depending on cipher; we export max 64 bytes
 static unsigned char tls_iv[16];    // IV (usually 12 bytes)
 static int tls_key_len = 0;
@@ -428,7 +427,7 @@ static int run_forwarder(__rte_unused void *arg)
     // τ_ROUTERS用のデータ
     unsigned char *g = concat2(sid, SID_LEN, sta_next_addr, 4, &g_len);
     unsigned char *g2 = concat2(g, g_len, sta_nnext_addr, 4, &g2_len);
-    print_hex("g for τ_ROUTERS", g, g_len);
+   //  print_hex("g for τ_ROUTERS", g, g_len);
     sign_data(nod->sk, g2, g2_len, t, &t_len);
     free(g);
     free(g2);
@@ -462,7 +461,7 @@ static int run_forwarder(__rte_unused void *arg)
                size_t off = sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr);
                size_t total_len = rx_pkt_mbuf[i]->pkt_len;
                // 最後のリレーのオーバレイ長
-               size_t wire_len = 2233 + 18 + (ROUTERS + 1) * 40  + (ROUTERS - 1) * 64 + ROUTERS * 33 + 162 + 32 + 64 + 4 + 4;
+               size_t wire_len = 2232 + 18 + (ROUTERS + 1) * 40  + (ROUTERS - 1) * 64 + ROUTERS * 33 + 162 + 32 + 64 + 4 + 4;
                // size_t wire_len = total_len - off - 16;
                // printf("Packet: %d bytes (overlay: %zu bytes)\n", rx_pkt_mbuf[i]->pkt_len, wire_len);
                uint8_t *ctr = ptr + off;
@@ -595,15 +594,15 @@ static int run_forwarder(__rte_unused void *arg)
    double hz = (double)rte_get_tsc_hz();
    printf("\nDPDK TSC Hz: %.2f\n", hz);
    printf("\n=== Average Cycles per Packet (total: %lu packets) ===\n", n_all_rx);
-   printf("τ verification:  %.2f cycles  (%.2f µs)\n", avg_verify_tau, avg_verify_tau / hz * 1e6);
-   printf("π verification:  %.2f cycles  (%.2f µs)\n", avg_verify_pi, avg_verify_pi / hz * 1e6);
-   printf("C commitment:   %.2f cycles  (%.2f µs)\n", avg_com_c, avg_com_c / hz * 1e6);
-   printf("π signing:       %.2f cycles  (%.2f µs)\n", avg_sign_pi, avg_sign_pi / hz * 1e6);
-   printf("V confirmation:  %.2f cycles  (%.2f µs)\n", avg_conf_v, avg_conf_v / hz * 1e6);
-   printf("τ signing:       %.2f cycles  (%.2f µs)\n", avg_sign_tau, avg_sign_tau / hz * 1e6);
-   printf("ACSEG generation:  %.2f cycles  (%.2f µs)\n", avg_datatrans_gen_acseg, avg_datatrans_gen_acseg / hz * 1e6);
-   printf("ACSEG verification:  %.2f cycles  (%.2f µs)\n", avg_datatrans_verify_acseg, avg_datatrans_verify_acseg / hz * 1e6);
-   printf("Router process:  %.2f cycles  (%.2f µs)\n", avg_router, avg_router / hz * 1e6);
+   printf("Average τ verification:  %.2f cycles  (%.2f µs)\n", avg_verify_tau, avg_verify_tau / hz * 1e6);
+   printf("Average π verification:  %.2f cycles  (%.2f µs)\n", avg_verify_pi, avg_verify_pi / hz * 1e6);
+   printf("Average C commitment:   %.2f cycles  (%.2f µs)\n", avg_com_c, avg_com_c / hz * 1e6);
+   printf("Average π signing:       %.2f cycles  (%.2f µs)\n", avg_sign_pi, avg_sign_pi / hz * 1e6);
+   printf("Average V confirmation:  %.2f cycles  (%.2f µs)\n", avg_conf_v, avg_conf_v / hz * 1e6);
+   printf("Average τ signing:       %.2f cycles  (%.2f µs)\n", avg_sign_tau, avg_sign_tau / hz * 1e6);
+   printf("Average MAC generation:  %.2f cycles  (%.2f µs)\n", avg_datatrans_gen_acseg, avg_datatrans_gen_acseg / hz * 1e6);
+   printf("Average MAC verification:  %.2f cycles  (%.2f µs)\n", avg_datatrans_verify_acseg, avg_datatrans_verify_acseg / hz * 1e6);
+   printf("Average Relay process:  %.2f cycles  (%.2f µs)\n", avg_router, avg_router / hz * 1e6);
    slave_finish_signal[lcore_id] = true;
    rte_free(nodes);
    printf("lcore %d exiting...\n", lcore_id);

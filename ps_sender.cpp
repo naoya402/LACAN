@@ -1,83 +1,15 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <stdint.h>
-// #include <inttypes.h>
-// #include <sys/types.h>
-// #include <sys/queue.h>
-// #include <sys/time.h>
-// #include <sys/mman.h>
-// #include <sys/stat.h>
-// #include <unistd.h>
-// #include <string.h>
-// #include <stdarg.h>
-// #include <signal.h>
-// #include <errno.h>
-// #include <getopt.h>
-// #include <fcntl.h>
-// #include <pthread.h>
-// #include <netinet/in.h>
-// #include <string>
-// #include <random>
-// #include <cmath>
-// #include <utility>
-// #include <time.h>
-
-
-
-// #include <rte_common.h>
-// #include <rte_byteorder.h>
-// #include <rte_log.h>
-// #include <rte_memory.h>
-// #include <rte_memcpy.h>
-// #include <rte_eal.h>
-// #include <rte_per_lcore.h>
-// #include <rte_launch.h>
-// #include <rte_cycles.h>
-// #include <rte_prefetch.h>
-// #include <rte_lcore.h>
-// #include <rte_branch_prediction.h>
-// #include <rte_interrupts.h>
-// #include <rte_pci.h>
-// #include <rte_random.h>
-// #include <rte_debug.h>
-// #include <rte_ether.h>
-// #include <rte_ethdev.h>
-// #include <rte_mempool.h>
-// #include <rte_mbuf.h>
-// #include <rte_ip.h>
-// #include <rte_tcp.h>
-// #include <rte_lpm.h>
-// #include <rte_lpm6.h>
-// #include <rte_malloc.h>
-// #include <rte_flow.h>
-// #include <rte_thash.h>
-// #include <rte_atomic.h>
-
-// #include <stdio.h>
-// #include <string.h>
-// #include <stdint.h>
-// #include <stdlib.h>
-// #include <arpa/inet.h>
-
-// #include <openssl/evp.h>
-// #include <openssl/rand.h>
-// #include <openssl/sha.h>
-// #include <openssl/err.h>
-// #include <openssl/pem.h>
-
 #include "dpdk-util/eth_config2.h"
 #include "main.h"
 // #include "func.h"
 #include "common_func.h"
 #include "DPDK_func.h"
-#include "rte_security.h"
 
 #include "groupsig/groupsig.h"
 #include "groupsig/gml.h"
 #include "groupsig/kty04.h"
 #include "groupsig/message.h"
 
-
+/* ======= 固定TLS鍵とIV,AAD (handshake省略) ======= */
 static const uint8_t KEY[32] = {
     0xc7,0xb5,0x68,0x7a,0xfb,0xc2,0xfc,0x4f,
     0xc8,0xf1,0x15,0xb0,0x18,0x0d,0x9d,0x26,
@@ -142,7 +74,6 @@ static void signal_handler(int signum)
 bool slave_exit_signal = false;
 bool slave_finish_signal[MAX_CORE_NUM];
 
-
 // 鍵をファイルから読み込み
 groupsig_key_t *load_key_from_file(const char *path, uint8_t scheme, groupsig_key_t *(*import_func)(uint8_t, byte_t *, uint32_t)) {
     FILE *f = fopen(path, "rb");
@@ -165,13 +96,13 @@ groupsig_key_t *load_key_from_file(const char *path, uint8_t scheme, groupsig_ke
     size_t read_bytes = fread(buf, 1, len, f);
     fclose(f);
     if (read_bytes != (size_t)len) {
-        fprintf(stderr, "Warning: expected %ld bytes, but read %zu bytes from %s\n",
-                len, read_bytes, path);
-    }
-
-    groupsig_key_t *key = import_func(scheme, buf, len);
-    free(buf);
-    return key;
+       fprintf(stderr, "Warning: expected %ld bytes, but read %zu bytes from %s\n",
+         len, read_bytes, path);
+      }
+      
+      groupsig_key_t *key = import_func(scheme, buf, len);
+      free(buf);
+      return key;
 }
 
 //マルチスレッド対応版 初期化処理（各スレッドで一度だけ呼び出す）

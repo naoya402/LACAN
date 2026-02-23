@@ -27,7 +27,7 @@ void aead_encrypt(const unsigned char key[KEY_LEN],const unsigned char *pt, size
 int aead_decrypt(const unsigned char key[KEY_LEN], const unsigned char *ct, size_t ct_len, const unsigned char sid[SID_LEN], const unsigned char iv[IV_LEN], const unsigned char tag[TAG_LEN], unsigned char *pt_out);
 void sign_data(EVP_PKEY *sk, const unsigned char *data, size_t datalen, unsigned char *sig, size_t *siglen);
 int verify_sig(EVP_PKEY *pk, const unsigned char *data, size_t datalen, const unsigned char *sig, size_t siglen);
-void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char *prev_addr,  unsigned char *next_addr, unsigned char *nnext_addr, const unsigned char *tau, unsigned char rand_val[4]);
+void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char prev_addr[4],  unsigned char next_addr[4], unsigned char nnext_addr[4], const unsigned char *tau, unsigned char rand_val[4]);
 size_t read_l2l3_min(const unsigned char *frame, size_t frame_len);
 size_t build_overlay_setup_req(struct rte_mbuf *mbuf, const Packet *pkt);
 size_t build_overlay_data_trans(struct rte_mbuf *mbuf, const Packet *pkt);

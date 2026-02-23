@@ -25,6 +25,7 @@ static const uint8_t FIXED_IV[12] = {
 /* nonce counter: 接続ごとに別で良いので static に持つ（両端とも同様の扱いで） */
 uint32_t nonce_counter = 1;
 
+// バイト列連結
 unsigned char* concat2(const unsigned char *a, size_t alen, const unsigned char *b, size_t blen, size_t *outlen) {
     *outlen = alen + blen;
     unsigned char *buf = (unsigned char*)malloc(*outlen);
@@ -34,7 +35,7 @@ unsigned char* concat2(const unsigned char *a, size_t alen, const unsigned char 
     return buf;
 }
 
-// AES-GCM暗号化
+// AES-GCM暗号化/復号
 void aead_encrypt(const unsigned char key[KEY_LEN],const unsigned char *pt, size_t pt_len, const unsigned char sid[SID_LEN], unsigned char iv[IV_LEN], unsigned char *ct, unsigned char tag[TAG_LEN]) {
     // RAND_bytes(iv, IV_LEN);
     memcpy(iv, FIXED_IV, IV_LEN);
@@ -97,7 +98,8 @@ int verify_sig(EVP_PKEY *pk, const unsigned char *data, size_t datalen, const un
     // EVP_MD_CTX_free(mdctx);
     return ok == 1;
 }
-// ステート操作
+
+// ステートのセット
 void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char prev_addr[4], unsigned char next_addr[4], unsigned char nnext_addr[4], const unsigned char *tau, unsigned char rand_val[4]) {
         for (int i=0;i<MAX_STATE;i++) {
         if (!n->state[i].used) {
@@ -122,7 +124,6 @@ void state_set(Node *n, const unsigned char sid[SID_LEN], unsigned char prev_add
     die("state full");
 }
 
-//========= オーバーレイ領域ヘッダ & ペイロード=========
 // L2/L3 ダミーを埋めて最小 IPv4 ヘッダ(IHL = 5)作成
 size_t write_l2l3_min(unsigned char *buf, size_t buf_cap) {
     if (buf_cap < ETH_LEN + sizeof(IPv4Hdr)) die("buf too small for L2/L3");
@@ -138,11 +139,12 @@ size_t write_l2l3_min(unsigned char *buf, size_t buf_cap) {
     return ETH_LEN + sizeof(IPv4Hdr);
 }
 
-// ======== オーバーレイのビルド/パース ========
+// IPヘッダ長をバイト単位で返す
 size_t ipv4_header_len_bytes(const IPv4Hdr *ip) {
     return 4 * (ip->ver_ihl & 0x0F); // IHL * 4
 }
 
+// L2/L3ヘッダの末尾位置を返す
 size_t l3_overlay_offset(const unsigned char *l2) {
     const EthHdr *eth = (const EthHdr*)l2;
     (void)eth; // VLAN 無し前提。VLAN 対応は実運用で追加。
@@ -150,7 +152,7 @@ size_t l3_overlay_offset(const unsigned char *l2) {
     return ETH_LEN + ipv4_header_len_bytes(ip); // 14 + IHL*4
 }
 
-// SETUP_REQ を 34B(=L3末) から書く
+// 経路設定フェーズのパケット を 34B(=L3末) から書く
 size_t build_overlay_setup_req(unsigned char *l2, size_t cap, const Packet *pkt) {
     size_t off = l3_overlay_offset(l2);
     unsigned char *p = l2 + off; //現在の位置 ＋ L2L3オフセット
@@ -195,7 +197,7 @@ size_t build_overlay_setup_req(unsigned char *l2, size_t cap, const Packet *pkt)
     return (size_t)(p - l2 - off); // 書き終わったバイト位置
 }
 
-// DATA_TRANS を書く
+// データ転送フェーズのパケット を 34B(=L3末) から書く
 size_t build_overlay_data_trans(unsigned char *l2, size_t cap, const Packet *pkt) {
     size_t off = l3_overlay_offset(l2);
     unsigned char *p = l2 + off;
@@ -298,7 +300,7 @@ int parse_frame_to_pkt(const unsigned char *frame, size_t frame_len, Packet *pkt
     return 0;
 }
 
-// 修正したリレー処理（SETUP_REQの中継）
+// 経路設定フェーズのリレー処理
 int router_handle_forward(unsigned char *frame, Node *nodes) {
     US_CTX *us = US_init("secp256k1");
     if (!us) { fprintf(stderr,"US_init error\n"); return 1; }
@@ -489,6 +491,7 @@ int router_handle_forward(unsigned char *frame, Node *nodes) {
     return 0;
 }
 
+// データ転送フェーズのリレー処理
 int router_handle_data_trans(unsigned char *frame, Node *nodes) {
     Packet pkt;
     size_t frame_cap = MAX_FRAME;

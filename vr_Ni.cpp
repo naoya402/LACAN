@@ -1,8 +1,3 @@
-// #include "groupsig/groupsig.h"
-// #include "groupsig/gml.h"
-// #include "groupsig/kty04.h"
-// #include "groupsig/message.h"
-
 #include "common_func.h"
 #include "TLS_func.h"
 #include "config.h"
@@ -18,9 +13,6 @@ int main(int argc, char *argv[]) {
     // if (ret < 0) rte_exit(EXIT_FAILURE, "EAL init failed\n");
     uint64_t tsc_hz = 2000000000;//rte_get_tsc_hz();
     // signal(SIGPIPE, SIG_IGN);
-    // グループ署名初期化
-    // groupsig_init(GROUPSIG_KTY04_CODE, time(NULL));
-    // groupsig_key_t *grpkey = load_key_from_file("grpkey.pem", GROUPSIG_KTY04_CODE, groupsig_grp_key_import);
     // US context 初期化
     US_CTX *us = US_init("secp256k1");
     if (!us) { fprintf(stderr,"US_init error\n"); return 1; }
@@ -253,8 +245,6 @@ int main(int argc, char *argv[]) {
         // printf("prev_addr: %d.%d.%d.%d\n", prev[0], prev[1], prev[2], prev[3]);
         reinq = concat2(reinq4, reinq4_len, (unsigned char*)&flags, 2, &reinq_len);
         // print_hex("reinq", reinq, reinq_len);
-        // printf("Reinq generation took %lu cycles\n", end_cycles - start_cycles);
-        // printf("Reinq generation took %.2f μs\n", (double)(end_cycles - start_cycles) / (double)tsc_hz * 1e6);
         
         // print_hex("[Node] Sending reinq to Verifier: ", reinq, reinq_len);
         // uint32_t reinq_len_n = htonl(reinq_len);
@@ -277,6 +267,7 @@ int main(int argc, char *argv[]) {
         router_cycles += (end_cycles - router_start_cycles);
         // printf("Processed packets: %lu\n", pkt_count);
         pkt_count++;
+        free(n); free(nn); free(v); free(vp); free(reinq); free(enc);
     }
     // 平均サイクル数表示
     double avg_time_confirm = (double)Confirm_cycles / (double)pkt_count;

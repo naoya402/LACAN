@@ -1,16 +1,11 @@
 #ifndef TLS_FUNC_H  
 #define TLS_FUNC_H 
 #include "common_func.h"
-
-
 // // #include "main.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// using namespace std;
-// #define CORE_NUM 10
 
  
 // typedef enum{ SETUP_REQ = 1, SETUP_RESP = 2, DATA_TRANS = 3 } Status;
@@ -45,7 +40,7 @@ typedef struct {
     // options may follow (IHL>5)
 } __attribute__((packed)) IPv4Hdr;
 
-// 関数プロトタイプ宣言
+
 unsigned char* concat2(const unsigned char *a, size_t alen, const unsigned char *b, size_t blen, size_t *outlen);
 void aead_encrypt(const unsigned char key[KEY_LEN],const unsigned char *pt, size_t pt_len, const unsigned char sid[SID_LEN], unsigned char iv[IV_LEN], unsigned char *ct, unsigned char tag[TAG_LEN]);
 int aead_decrypt(const unsigned char key[KEY_LEN], const unsigned char *ct, size_t ct_len, const unsigned char sid[SID_LEN], const unsigned char iv[IV_LEN], const unsigned char tag[TAG_LEN], unsigned char *pt_out);
